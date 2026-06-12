@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#15181D">
+<title>Weigh Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15181D; --panel:#1E222A; --panel2:#181C22; --line:#2C323D;
+    --text:#EEF1F5; --dim:#8C95A3; --amber:#FFB02E; --green:#41D98D; --red:#FF5C5C;
+    --r:12px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family:'Archivo',system-ui,sans-serif; font-size:16px;}
+  body{padding-bottom:calc(76px + env(safe-area-inset-bottom));}
+  .mono{font-family:'IBM Plex Mono',monospace}
+
+  header{padding:calc(14px + env(safe-area-inset-top)) 18px 10px;
+    display:flex; align-items:baseline; justify-content:space-between;}
+  header h1{font-size:17px; font-weight:700; letter-spacing:.04em; margin:0; text-transform:uppercase}
+  header .dot{font-size:12px; color:var(--dim)}
+  header .dot.on{color:var(--green)}
+
+  .view{display:none; padding:0 16px;}
+  .view.active{display:block}
+
+  label{display:block; font-size:12px; font-weight:600; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--dim); margin:16px 2px 6px;}
+  input[type=text], input[type=number], input[type=date], input[type=url]{
+    width:100%; height:52px; padding:0 14px; border-radius:var(--r);
+    border:1px solid var(--line); background:var(--panel); color:var(--text);
+    font-size:17px; font-family:inherit; outline:none; appearance:none;}
+  input:focus{border-color:var(--amber)}
+  input[type=number]{font-family:'IBM Plex Mono',monospace; font-weight:600}
+  input[type=date]{color-scheme:dark}
+
+  .editbar{display:none; margin-top:16px; background:var(--panel); border:1px solid var(--amber);
+    border-radius:var(--r); padding:12px 14px; font-size:14px;
+    align-items:center; justify-content:space-between;}
+  .editbar.show{display:flex}
+  .editbar b{color:var(--amber)}
+  .editbar button{background:none; border:none; color:var(--dim); font-family:inherit;
+    font-size:14px; font-weight:600; text-decoration:underline; cursor:pointer; padding:6px}
+
+  /* container picker */
+  .crow{display:flex; gap:10px; overflow-x:auto; padding:4px 2px 8px; scrollbar-width:none;}
+  .crow::-webkit-scrollbar{display:none}
+  .ccard{flex:0 0 auto; width:104px; border:1px solid var(--line); border-radius:var(--r);
+    background:var(--panel); padding:8px; text-align:center; cursor:pointer;}
+  .ccard.sel{border-color:var(--amber); box-shadow:0 0 0 1px var(--amber)}
+  .ccard img, .ccard .ph{width:88px; height:66px; object-fit:cover; border-radius:8px;
+    background:var(--panel2); display:block; margin:0 auto;}
+  .ccard .ph{display:flex; align-items:center; justify-content:center; color:var(--dim); font-size:22px; font-weight:700}
+  .ccard .nm{font-size:12px; font-weight:600; margin-top:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .ccard .tw{font-size:12px; color:var(--amber); margin-top:2px}
+  .crow .empty{font-size:14px; color:var(--dim); padding:14px 4px}
+
+  /* tare checkmark */
+  .check{margin-top:16px; display:flex; align-items:center; justify-content:space-between;
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
+    padding:0 14px; height:56px; cursor:pointer; user-select:none;}
+  .check .t{font-weight:600}
+  .check .box{width:30px; height:30px; border-radius:8px; border:2px solid var(--line);
+    display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:700; color:transparent;}
+  .check.on{border-color:var(--green)}
+  .check.on .box{background:var(--green); border-color:var(--green); color:#10241A}
+
+  .btn{width:100%; height:54px; border:none; border-radius:var(--r); font-size:17px;
+    font-weight:700; font-family:inherit; cursor:pointer; margin-top:18px;}
+  .btn.primary{background:var(--amber); color:#15181D}
+  .btn.primary:active{filter:brightness(.92)}
+  .btn.ghost{background:var(--panel); color:var(--text); border:1px solid var(--line)}
+  .btn:disabled{opacity:.5}
+
+  .row2{display:flex; gap:10px}
+  .row2 > div{flex:1}
+
+  /* containers view */
+  .clist{margin-top:14px; display:flex; flex-direction:column; gap:10px}
+  .citem{display:flex; align-items:center; gap:12px; background:var(--panel);
+    border:1px solid var(--line); border-radius:var(--r); padding:10px 12px; cursor:pointer;}
+  .citem.sel{border-color:var(--amber)}
+  .citem img,.citem .ph{width:64px; height:48px; object-fit:cover; border-radius:8px; background:var(--panel2);
+    display:flex; align-items:center; justify-content:center; color:var(--dim); font-weight:700}
+  .citem .info{flex:1; min-width:0}
+  .citem .info .nm{font-weight:600}
+  .citem .info .tw{font-size:13px; color:var(--amber)}
+  .citem .del{background:none; border:none; color:var(--dim); font-size:20px; padding:10px; cursor:pointer}
+  .hint{font-size:13px; color:var(--dim); margin-top:10px; padding:0 2px}
+
+  .photopick{margin-top:6px; display:flex; align-items:center; gap:12px}
+  .photopick img{width:96px; height:72px; object-fit:cover; border-radius:8px; border:1px solid var(--line); display:none}
+  .photopick .btn{margin-top:0; width:auto; padding:0 18px; height:48px}
+
+  /* history */
+  .hlist{margin-top:14px; display:flex; flex-direction:column; gap:8px}
+  .hitem{background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
+    padding:12px 14px; cursor:pointer;}
+  .hitem .top{display:flex; justify-content:space-between; font-weight:600; gap:8px}
+  .hitem .top .wt{font-family:'IBM Plex Mono',monospace; color:var(--amber); white-space:nowrap}
+  .hitem .sub{font-size:13px; color:var(--dim); margin-top:3px}
+  .hitem .sub .tareok{color:var(--green)}
+
+  /* setup */
+  .note{background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
+    padding:14px; font-size:14px; color:var(--dim); line-height:1.5; margin-top:14px}
+  .note b{color:var(--text)}
+
+  /* tabs */
+  nav{position:fixed; left:0; right:0; bottom:0; display:flex;
+    background:rgba(24,28,34,.96); backdrop-filter:blur(10px);
+    border-top:1px solid var(--line); padding-bottom:env(safe-area-inset-bottom);}
+  nav button{flex:1; background:none; border:none; color:var(--dim); font-family:inherit;
+    font-size:11px; font-weight:600; letter-spacing:.05em; text-transform:uppercase;
+    padding:10px 0 12px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:3px}
+  nav button svg{width:22px; height:22px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round}
+  nav button.active{color:var(--amber)}
+
+  .toast{position:fixed; left:50%; bottom:96px; transform:translateX(-50%) translateY(20px);
+    background:var(--green); color:#10241A; font-weight:700; padding:12px 22px;
+    border-radius:30px; opacity:0; pointer-events:none; transition:all .25s; z-index:50; white-space:nowrap}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+  .toast.err{background:var(--red); color:#2A0F0F}
+
+  .spin{display:inline-block; width:16px; height:16px; border:2px solid rgba(0,0,0,.3);
+    border-top-color:#15181D; border-radius:50%; animation:sp .7s linear infinite; vertical-align:-3px; margin-right:8px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion: reduce){ .toast{transition:none} .spin{animation:none} }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Weigh Log</h1>
+  <span class="dot" id="connDot">● offline</span>
+</header>
+
+<!-- ============ LOG ============ -->
+<div class="view active" id="view-log">
+  <div class="editbar" id="logEditBar">
+    <span>Editing entry <b id="logEditLabel"></b></span>
+    <button id="logEditCancel">Cancel</button>
+  </div>
+
+  <label for="f-date">Date</label>
+  <input type="date" id="f-date">
+
+  <label for="f-batch">Batch number</label>
+  <input type="text" id="f-batch" placeholder="R260051-RC" autocapitalize="characters" autocomplete="off">
+
+  <label>Container</label>
+  <div class="crow" id="pickerRow"><div class="empty">No containers yet — add them in the Containers tab.</div></div>
+
+  <label for="f-cweight">Container weight (kg)</label>
+  <input type="number" id="f-cweight" inputmode="decimal" step="0.1" placeholder="Tap a container above or type it">
+
+  <div class="check" id="tareCheck" role="checkbox" aria-checked="false" tabindex="0">
+    <span class="t">Tare</span>
+    <span class="box">✓</span>
+  </div>
+
+  <label for="f-total">Total weight w/ product (kg)</label>
+  <input type="number" id="f-total" inputmode="decimal" step="0.1" placeholder="0.0">
+
+  <label for="f-traveler">Traveler batch</label>
+  <input type="text" id="f-traveler" placeholder="T260190" autocapitalize="characters" autocomplete="off">
+
+  <label for="f-witness">2nd witness (optional)</label>
+  <input type="text" id="f-witness" placeholder="Initials" autocomplete="off">
+
+  <button class="btn primary" id="saveBtn">Save to sheet</button>
+</div>
+
+<!-- ============ CONTAINERS ============ -->
+<div class="view" id="view-containers">
+  <div class="editbar" id="conEditBar">
+    <span>Editing <b id="conEditLabel"></b></span>
+    <button id="conEditCancel">Cancel</button>
+  </div>
+
+  <label>Photo</label>
+  <div class="photopick">
+    <img id="newPhotoPrev" alt="Container photo preview">
+    <button class="btn ghost" id="photoBtn">Take photo</button>
+    <input type="file" id="photoInput" accept="image/*" capture="environment" hidden>
+  </div>
+
+  <label for="c-name">Name</label>
+  <input type="text" id="c-name" placeholder="Blue container" autocomplete="off">
+
+  <label for="c-weight">Weight (kg)</label>
+  <input type="number" id="c-weight" inputmode="decimal" step="0.1" placeholder="9.4">
+
+  <button class="btn primary" id="addContainerBtn">Add container</button>
+
+  <div class="hint">Tap a container below to edit it. ✕ deletes it.</div>
+  <div class="clist" id="containerList"></div>
+</div>
+
+<!-- ============ HISTORY ============ -->
+<div class="view" id="view-history">
+  <button class="btn ghost" id="refreshLogsBtn" style="margin-top:16px">Refresh</button>
+  <div class="hint">Tap an entry to fix or change it.</div>
+  <div class="hlist" id="historyList"></div>
+</div>
+
+<!-- ============ SETUP ============ -->
+<div class="view" id="view-setup">
+  <div class="note">
+    Paste the <b>Web app URL</b> from your Google Apps Script deployment
+    (ends in <b>/exec</b>). The app saves it on this phone and uses it to
+    read and write your Google Sheet.
+  </div>
+  <label for="s-url">Apps Script web app URL</label>
+  <input type="url" id="s-url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off">
+  <button class="btn primary" id="saveUrlBtn">Save &amp; test connection</button>
+</div>
+
+<nav>
+  <button data-v="log" class="active">
+    <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Log</button>
+  <button data-v="containers">
+    <svg viewBox="0 0 24 24"><path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M4 8l8 4 8-4M12 12v8"/></svg>Containers</button>
+  <button data-v="history">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>History</button>
+  <button data-v="setup">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.5a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2l.4 2.5h4l.4-2.5a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg>Setup</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var API_KEY = 'mwt_api_url', CACHE_KEY = 'mwt_containers';
+  var apiUrl = '', containers = [], selectedId = null;
+  var editingLogId = null, editingConId = null;
+  var logs = [];
+
+  try { apiUrl = localStorage.getItem(API_KEY) || ''; } catch(e){}
+  try { containers = JSON.parse(localStorage.getItem(CACHE_KEY) || '[]'); } catch(e){ containers = []; }
+
+  /* ---------- helpers ---------- */
+  function toast(msg, isErr){
+    var t = $('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (isErr ? ' err' : '');
+    clearTimeout(t._tm);
+    t._tm = setTimeout(function(){ t.className = 'toast'; }, 2600);
+  }
+  function api(payload){
+    if (!apiUrl) return Promise.reject(new Error('No URL set — open the Setup tab.'));
+    return fetch(apiUrl, { method:'POST', body: JSON.stringify(payload) })
+      .then(function(r){ return r.json(); })
+      .then(function(d){ if (!d.ok) throw new Error(d.error || 'Request failed'); return d; });
+  }
+  function setConn(on){
+    var d = $('connDot');
+    d.textContent = on ? '● connected' : '● offline';
+    d.className = 'dot' + (on ? ' on' : '');
+  }
+  function fmt(n){
+    if (n === '' || n === null || n === undefined || !isFinite(n)) return '—';
+    return (Math.round(Number(n) * 100) / 100).toString();
+  }
+  function esc(s){ return String(s).replace(/[&<>"']/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]; }); }
+  function todayISO(){
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function isoToSheet(iso){ // yyyy-mm-dd → m/d/yy
+    var p = iso.split('-');
+    return p.length === 3 ? (+p[1]) + '/' + (+p[2]) + '/' + p[0].slice(2) : iso;
+  }
+  function sheetToISO(s){ // m/d/yy or m/d/yyyy → yyyy-mm-dd
+    var p = String(s).split('/');
+    if (p.length !== 3) return todayISO();
+    var y = p[2].length === 2 ? '20' + p[2] : p[2];
+    return y + '-' + String(p[0]).padStart(2,'0') + '-' + String(p[1]).padStart(2,'0');
+  }
+  function switchTab(name){
+    document.querySelectorAll('nav button').forEach(function(x){ x.classList.toggle('active', x.dataset.v === name); });
+    document.querySelectorAll('.view').forEach(function(x){ x.classList.remove('active'); });
+    $('view-' + name).classList.add('active');
+  }
+
+  /* ---------- tabs ---------- */
+  document.querySelectorAll('nav button').forEach(function(b){
+    b.addEventListener('click', function(){
+      switchTab(b.dataset.v);
+      if (b.dataset.v === 'history' && !$('historyList').children.length) loadLogs();
+    });
+  });
+
+  /* ---------- tare checkmark ---------- */
+  var tareOn = false;
+  function setTare(v){
+    tareOn = !!v;
+    var c = $('tareCheck');
+    c.classList.toggle('on', tareOn);
+    c.setAttribute('aria-checked', tareOn ? 'true' : 'false');
+  }
+  $('tareCheck').addEventListener('click', function(){ setTare(!tareOn); });
+  $('tareCheck').addEventListener('keydown', function(e){
+    if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); setTare(!tareOn); }
+  });
+
+  /* ---------- log form ---------- */
+  $('f-date').value = todayISO();
+
+  function renderPicker(){
+    var row = $('pickerRow');
+    row.innerHTML = '';
+    if (!containers.length){
+      row.innerHTML = '<div class="empty">No containers yet — add them in the Containers tab.</div>';
+      return;
+    }
+    containers.forEach(function(c){
+      var card = document.createElement('div');
+      card.className = 'ccard' + (c.id === selectedId ? ' sel' : '');
+      card.innerHTML = (c.photo ? '<img src="' + c.photo + '" alt="">' : '<div class="ph">' + esc((c.name||'?').charAt(0).toUpperCase()) + '</div>')
+        + '<div class="nm">' + esc(c.name) + '</div>'
+        + '<div class="tw mono">' + fmt(c.weight) + ' kg</div>';
+      card.addEventListener('click', function(){
+        selectedId = (selectedId === c.id) ? null : c.id;
+        if (selectedId) $('f-cweight').value = c.weight;
+        renderPicker();
+      });
+      row.appendChild(card);
+    });
+  }
+
+  function clearLogForm(){
+    $('f-batch').value = ''; $('f-total').value = '';
+    $('f-traveler').value = ''; $('f-witness').value = '';
+    $('f-cweight').value = ''; selectedId = null;
+    setTare(false);
+    renderPicker();
+  }
+  function exitLogEdit(){
+    editingLogId = null;
+    $('logEditBar').classList.remove('show');
+    $('saveBtn').textContent = 'Save to sheet';
+    clearLogForm();
+    $('f-date').value = todayISO();
+  }
+  $('logEditCancel').addEventListener('click', exitLogEdit);
+
+  $('saveBtn').addEventListener('click', function(){
+    var batch = $('f-batch').value.trim();
+    if (!batch){ toast('Batch number is required', true); return; }
+    var sel = containers.find(function(c){ return c.id === selectedId; });
+    var cw = $('f-cweight').value;
+    var total = $('f-total').value;
+    var payload = {
+      action: editingLogId ? 'updateLog' : 'addLog',
+      id: editingLogId || undefined,
+      date: isoToSheet($('f-date').value),
+      batch: batch,
+      container: sel ? sel.name : '',
+      containerWeight: cw === '' ? '' : parseFloat(cw),
+      tare: tareOn,
+      total: total === '' ? '' : parseFloat(total),
+      traveler: $('f-traveler').value.trim(),
+      witness: $('f-witness').value.trim()
+    };
+    var btn = $('saveBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span>' + (editingLogId ? 'Updating…' : 'Saving…');
+    api(payload).then(function(){
+      setConn(true);
+      $('historyList').innerHTML = '';
+      if (editingLogId){
+        toast('Entry updated ✓');
+        exitLogEdit();
+        switchTab('history');
+        loadLogs();
+      } else {
+        toast('Saved to sheet ✓');
+        clearLogForm();
+      }
+    }).catch(function(err){
+      toast(err.message, true);
+    }).finally(function(){
+      btn.disabled = false;
+      btn.textContent = editingLogId ? 'Update entry' : 'Save to sheet';
+    });
+  });
+
+  function startLogEdit(l){
+    editingLogId = l.id;
+    $('logEditBar').classList.add('show');
+    $('logEditLabel').textContent = l.batch || l.date;
+    $('saveBtn').textContent = 'Update entry';
+    $('f-date').value = sheetToISO(l.date);
+    $('f-batch').value = l.batch;
+    $('f-cweight').value = l.containerWeight;
+    $('f-total').value = l.total;
+    $('f-traveler').value = l.traveler;
+    $('f-witness').value = l.witness;
+    setTare(l.tare);
+    var match = containers.find(function(c){ return c.name === l.container; });
+    selectedId = match ? match.id : null;
+    renderPicker();
+    switchTab('log');
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------- containers ---------- */
+  var newPhoto = '';
+  $('photoBtn').addEventListener('click', function(){ $('photoInput').click(); });
+  $('photoInput').addEventListener('change', function(){
+    var f = this.files && this.files[0];
+    if (!f) return;
+    var img = new Image();
+    var url = URL.createObjectURL(f);
+    img.onload = function(){
+      var max = 280;
+      var sc = Math.min(1, max / Math.max(img.width, img.height));
+      var cv = document.createElement('canvas');
+      cv.width = Math.round(img.width * sc);
+      cv.height = Math.round(img.height * sc);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      newPhoto = cv.toDataURL('image/jpeg', 0.7);
+      var p = $('newPhotoPrev');
+      p.src = newPhoto; p.style.display = 'block';
+      $('photoBtn').textContent = 'Retake';
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  });
+
+  function clearConForm(){
+    $('c-name').value = ''; $('c-weight').value = '';
+    newPhoto = ''; $('newPhotoPrev').style.display = 'none';
+    $('photoBtn').textContent = 'Take photo';
+  }
+  function exitConEdit(){
+    editingConId = null;
+    $('conEditBar').classList.remove('show');
+    $('addContainerBtn').textContent = 'Add container';
+    clearConForm();
+    renderContainers();
+  }
+  $('conEditCancel').addEventListener('click', exitConEdit);
+
+  function startConEdit(c){
+    editingConId = c.id;
+    $('conEditBar').classList.add('show');
+    $('conEditLabel').textContent = c.name;
+    $('addContainerBtn').textContent = 'Update container';
+    $('c-name').value = c.name;
+    $('c-weight').value = c.weight;
+    newPhoto = '';
+    if (c.photo){
+      $('newPhotoPrev').src = c.photo;
+      $('newPhotoPrev').style.display = 'block';
+      $('photoBtn').textContent = 'Retake';
+    } else {
+      $('newPhotoPrev').style.display = 'none';
+      $('photoBtn').textContent = 'Take photo';
+    }
+    renderContainers();
+    window.scrollTo(0, 0);
+  }
+
+  $('addContainerBtn').addEventListener('click', function(){
+    var name = $('c-name').value.trim();
+    var weight = parseFloat($('c-weight').value);
+    if (!name){ toast('Give the container a name', true); return; }
+    if (isNaN(weight)){ toast('Enter the weight', true); return; }
+    var btn = $('addContainerBtn');
+    var editing = !!editingConId;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span>' + (editing ? 'Updating…' : 'Adding…');
+    var payload = editing
+      ? { action:'updateContainer', id:editingConId, name:name, weight:weight, photo:newPhoto }
+      : { action:'addContainer', name:name, weight:weight, photo:newPhoto };
+    api(payload)
+      .then(function(d){
+        if (editing){
+          var c = containers.find(function(x){ return x.id === editingConId; });
+          if (c){ c.name = name; c.weight = weight; if (newPhoto) c.photo = newPhoto; }
+          toast('Container updated ✓');
+          exitConEdit();
+        } else {
+          containers.push(d.container);
+          toast('Container added ✓');
+          clearConForm();
+        }
+        cacheContainers();
+        renderContainers(); renderPicker();
+        setConn(true);
+      })
+      .catch(function(err){ toast(err.message, true); })
+      .finally(function(){
+        btn.disabled = false;
+        btn.textContent = editingConId ? 'Update container' : 'Add container';
+      });
+  });
+
+  function renderContainers(){
+    var list = $('containerList');
+    list.innerHTML = '';
+    containers.forEach(function(c){
+      var el = document.createElement('div');
+      el.className = 'citem' + (c.id === editingConId ? ' sel' : '');
+      el.innerHTML = (c.photo ? '<img src="' + c.photo + '" alt="">' : '<div class="ph">' + esc((c.name||'?').charAt(0).toUpperCase()) + '</div>')
+        + '<div class="info"><div class="nm">' + esc(c.name) + '</div>'
+        + '<div class="tw mono">' + fmt(c.weight) + ' kg</div></div>'
+        + '<button class="del" aria-label="Delete ' + esc(c.name) + '">✕</button>';
+      el.addEventListener('click', function(){ startConEdit(c); });
+      el.querySelector('.del').addEventListener('click', function(ev){
+        ev.stopPropagation();
+        if (!confirm('Delete "' + c.name + '"?')) return;
+        api({ action:'deleteContainer', id:c.id }).then(function(){
+          containers = containers.filter(function(x){ return x.id !== c.id; });
+          if (selectedId === c.id) selectedId = null;
+          if (editingConId === c.id) exitConEdit();
+          cacheContainers(); renderContainers(); renderPicker();
+          toast('Deleted');
+        }).catch(function(err){ toast(err.message, true); });
+      });
+      list.appendChild(el);
+    });
+  }
+  function cacheContainers(){
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(containers)); } catch(e){}
+  }
+  function syncContainers(){
+    if (!apiUrl) return;
+    api({ action:'getContainers' }).then(function(d){
+      containers = d.containers;
+      cacheContainers(); renderContainers(); renderPicker();
+      setConn(true);
+    }).catch(function(){ setConn(false); });
+  }
+
+  /* ---------- history ---------- */
+  function loadLogs(){
+    var list = $('historyList');
+    list.innerHTML = '<div class="note">Loading…</div>';
+    api({ action:'getLogs', limit:25 }).then(function(d){
+      logs = d.logs;
+      list.innerHTML = '';
+      if (!logs.length){ list.innerHTML = '<div class="note">No entries yet.</div>'; return; }
+      logs.forEach(function(l){
+        var el = document.createElement('div');
+        el.className = 'hitem';
+        el.innerHTML = '<div class="top"><span>' + esc(l.batch || '(no batch)') + '</span>'
+          + '<span class="wt">' + (l.total === '' ? '—' : fmt(l.total) + ' kg') + '</span></div>'
+          + '<div class="sub">' + esc(l.date)
+          + (l.container ? ' · ' + esc(l.container) : '')
+          + (l.containerWeight !== '' ? ' · cont ' + fmt(l.containerWeight) + ' kg' : '')
+          + (l.tare ? ' · <span class="tareok">tare ✓</span>' : '')
+          + (l.traveler ? ' · ' + esc(l.traveler) : '') + '</div>';
+        el.addEventListener('click', function(){ startLogEdit(l); });
+        list.appendChild(el);
+      });
+    }).catch(function(err){
+      list.innerHTML = '';
+      toast(err.message, true);
+    });
+  }
+  $('refreshLogsBtn').addEventListener('click', loadLogs);
+
+  /* ---------- setup ---------- */
+  $('s-url').value = apiUrl;
+  $('saveUrlBtn').addEventListener('click', function(){
+    var u = $('s-url').value.trim();
+    if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(u)){
+      toast('That doesn\u2019t look like an /exec web app URL', true); return;
+    }
+    apiUrl = u;
+    try { localStorage.setItem(API_KEY, u); } catch(e){}
+    var btn = $('saveUrlBtn');
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Testing…';
+    api({ action:'ping' }).then(function(d){
+      setConn(true);
+      toast(d.message || 'Connected ✓');
+      syncContainers();
+    }).catch(function(err){
+      setConn(false);
+      toast(err.message, true);
+    }).finally(function(){
+      btn.disabled = false; btn.textContent = 'Save & test connection';
+    });
+  });
+
+  /* ---------- boot ---------- */
+  renderContainers();
+  renderPicker();
+  if (apiUrl) { api({action:'ping'}).then(function(){ setConn(true); syncContainers(); }).catch(function(){ setConn(false); }); }
+  else { switchTab('setup'); }
+})();
+</script>
+</body>
+</html>
