@@ -107,6 +107,10 @@
   .hitem .top .wt{font-family:'IBM Plex Mono',monospace; color:var(--amber); white-space:nowrap}
   .hitem .sub{font-size:13px; color:var(--dim); margin-top:3px}
   .hitem .sub .tareok{color:var(--green)}
+  .hitem.sep{background:none; border:none; padding:6px 2px; cursor:default;
+    display:flex; align-items:center; gap:10px; color:var(--dim);
+    font-size:12px; font-weight:600; letter-spacing:.1em; text-transform:uppercase;}
+  .hitem.sep::before, .hitem.sep::after{content:''; flex:1; height:1px; background:var(--line)}
 
   /* setup */
   .note{background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
@@ -176,6 +180,7 @@
   <input type="text" id="f-witness" placeholder="Initials" autocomplete="off">
 
   <button class="btn primary" id="saveBtn">Save to sheet</button>
+  <button class="btn ghost" id="endDayBtn">End day — add divider line</button>
 </div>
 
 <!-- ============ CONTAINERS ============ -->
@@ -395,6 +400,25 @@
     });
   });
 
+  var SEP_MARK = 'END OF DAY';
+  $('endDayBtn').addEventListener('click', function(){
+    if (!confirm('Add an end-of-day divider line to the sheet?')) return;
+    var btn = $('endDayBtn');
+    btn.disabled = true;
+    btn.textContent = 'Adding divider…';
+    api({ action:'addSeparator', date: isoToSheet($('f-date').value) })
+      .then(function(){
+        setConn(true);
+        toast('Day closed ✓');
+        $('historyList').innerHTML = '';
+      })
+      .catch(function(err){ toast(err.message, true); })
+      .finally(function(){
+        btn.disabled = false;
+        btn.textContent = 'End day — add divider line';
+      });
+  });
+
   function startLogEdit(l){
     editingLogId = l.id;
     $('logEditBar').classList.add('show');
@@ -554,6 +578,12 @@
       if (!logs.length){ list.innerHTML = '<div class="note">No entries yet.</div>'; return; }
       logs.forEach(function(l){
         var el = document.createElement('div');
+        if ((l.batch || '').indexOf(SEP_MARK) !== -1){
+          el.className = 'hitem sep';
+          el.textContent = 'End of day · ' + l.date;
+          list.appendChild(el);
+          return;
+        }
         el.className = 'hitem';
         el.innerHTML = '<div class="top"><span>' + esc(l.batch || '(no batch)') + '</span>'
           + '<span class="wt">' + (l.total === '' ? '—' : fmt(l.total) + ' kg') + '</span></div>'
